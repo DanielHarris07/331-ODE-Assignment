@@ -25,10 +25,11 @@ def derivative_bungy(t, y, gravity, length, mass, drag, spring, gamma):
     Returns:
         f (ndarray): derivatives of vertical position and vertical velocity.
     """
-
-    # TODO: Your code goes here
+    f = np.array([2])
+    f[0] = y[1]
+    f[1] = gravity - np.sign(y[1]) * ((drag * y[1]**2) / mass) - (spring / mass) * (y[0] - length) - (gamma * y[1]) / mass
     
-    pass
+    return f
 
 def explicit_rk_fixed_step(func, y0, t0, t1, h, alpha, beta, gamma, *args):
     """
@@ -49,10 +50,19 @@ def explicit_rk_fixed_step(func, y0, t0, t1, h, alpha, beta, gamma, *args):
         t (ndarray): independent variable values at which dependent variable(s) calculated.
         y (ndarray): dependent variable(s) solved at t values.
     """
+    # initialise independent and dependent return arrays
+    t = np.array[list(range(t0, t1 + h, h))]
+    tn = len(t)
+    y = np.array([2, tn])
+    y[:, 0] = y0
     
-    # TODO: Your code goes here
+    # solve using RK method at each timestep
+    for time in t:
+        
 
-    pass
+
+    
+    return t, y
 
 def derivative_threebody(t,y0,g,m1,m2,m3):
     # HINT 1: One of these six function arguments will not actually be used in this threebody derivative function. However, do not remove it from the function definition, to preserve the generality of the solver functions.
