@@ -25,7 +25,7 @@ def derivative_bungy(t, y, gravity, length, mass, drag, spring, gamma):
     Returns:
         f (ndarray): derivatives of vertical position and vertical velocity.
     """
-    f = np.array([2])
+    f = np.array([2, 1])
     f[0] = y[1]
     f[1] = gravity - np.sign(y[1]) * ((drag * y[1]**2) / mass) - (spring / mass) * (y[0] - length) - (gamma * y[1]) / mass
     
@@ -51,17 +51,25 @@ def explicit_rk_fixed_step(func, y0, t0, t1, h, alpha, beta, gamma, *args):
         y (ndarray): dependent variable(s) solved at t values.
     """
     # initialise independent and dependent return arrays
-    t = np.array[list(range(t0, t1 + h, h))]
+    t = np.array(np.linspace(t0, t1, int(np.floor((t1 - t0)/h)))) # 1xN 
     tn = len(t)
-    y = np.array([2, tn])
-    y[:, 0] = y0
+    yn = len(y0)
+    y = np.zeros([yn, tn]) #2xN for bungee (2nd order system)
+
+    y[:, 0] = y0.T
+    fn = len(alpha)
     
     # solve using RK method at each timestep
-    for time in t:
-        
+    for i in range(tn - 1):
+        derivatives = np.zeros([2, fn]) #2xN for bungee (2nd order system)
+        for j in range(fn):
+            step_deriv = np.zeros([yn, 1])
+            for k in range(yn):
+                step_deriv[k] = np.dot(gamma[j, :], derivatives[k, :])
+            derivatives[:, j] = func(t[i] + h*beta[j], y[:, i:i+1] + h * step_deriv, *args)
+        for k in range(yn):
+            y[k, i + 1] = y[k, i] + h * np.dot(alpha, derivatives[k, :])
 
-
-    
     return t, y
 
 def derivative_threebody(t,y0,g,m1,m2,m3):
