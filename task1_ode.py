@@ -28,13 +28,22 @@ rk4_alpha = np.array([1./6., 1./3., 1./3., 1./6.])
 rk4_beta = np.array([0., 1./2., 1./2., 1.])
 rk4_gamma = np.array([[0., 0., 0., 0.], [1./2., 0., 0., 0.], [0., 1./2., 0., 0.], [0., 0., 1., 0.]])
 
-# bungy cords
-spring = np.array(list(range(50, 101, 10)) * 2)
-length = np.array([15] * 6 + [20] * 6)
-solutions = [None] * 12
-for i in range(12):
-    t, solutions[i] = explicit_rk_fixed_step(derivative_bungy, y0, t0, t1, h,
-                                                rk4_alpha, rk4_beta, rk4_gamma, gravity, length[i], mass, drag, spring[i], gamma)
+plot_all = False
+if plot_all:
+    # bungy cords
+    spring = np.array(list(range(50, 101, 10)) * 2)
+    length = np.array([15] * 6 + [20] * 6)
+    solutions = [None] * 12
+    for i in range(12):
+        t, solutions[i] = explicit_rk_fixed_step(derivative_bungy, y0, t0, t1, h,
+                                                    rk4_alpha, rk4_beta, rk4_gamma, gravity, length[i], mass, drag, spring[i], gamma)
 
-plt.plot(t, solutions[2][1, :])
-plt.show()
+    plt.plot(t, solutions[2][1, :])
+    plt.show()
+else:
+    length = 15
+    spring = 50
+    t, solution = explicit_rk_fixed_step(derivative_bungy, y0, t0, t1, h,
+                                                    rk4_alpha, rk4_beta, rk4_gamma, gravity, length, mass, drag, spring, gamma)
+    plt.plot(t, solution[0, :])
+    plt.show()
