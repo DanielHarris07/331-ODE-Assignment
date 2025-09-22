@@ -25,8 +25,13 @@ def derivative_bungy(t, y, gravity, length, mass, drag, spring, gamma):
     Returns:
         f (ndarray): derivatives of vertical position and vertical velocity.
     """
-    f = np.array([2, 1])
+    f = np.zeros([2, 1])
     f[0] = y[1]
+    
+    # If bungee is still in freefall, remove other terms
+    if y[0] < length:
+        spring = 0
+        gamma = 0
     f[1] = (mass * gravity - np.sign(y[1])*drag*y[1]**2 - spring*(y[0]  - length) - gamma * y[1]) / mass
     
     return f
@@ -51,27 +56,25 @@ def explicit_rk_fixed_step(func, y0, t0, t1, h, alpha, beta, gamma, *args):
         y (ndarray): dependent variable(s) solved at t values.
     """
     # initialise independent and dependent return arrays
-    t = np.array(np.linspace(t0, t1, int(np.floor((t1 - t0)/h)) + 1)) # 1xN 
-    tn = len(t)
+    tn = int(np.floor((t1 - t0)/h) + 1)
+    t = np.array(np.linspace(t0, t1, tn))
     yn = len(y0)
-    y = np.zeros([yn, tn]) #2xN for bungee (2nd order system)
-
-    y[:, 0] = y0.T
+    y = np.zeros([yn, tn]) 
     fn = len(alpha)
+    # set initial conditions for the dependent variables
+    y[:, 0] = y0
     
     # solve using RK method at each timestep
-    for i in range(tn - 1):
-        derivatives = np.zeros([2, fn]) #2xN for bungee (2nd order system)
-        for j in range(fn):
-            step_deriv = np.zeros([yn, 1])
-            for k in range(yn):
-                step_deriv[k] = np.dot(gamma[j, :], derivatives[k, :])
-            if y[0, i] >= args[1]: 
-                derivatives[:, j] = func(t[i] + h*beta[j], y[:, i:i+1] + h * step_deriv, *args)
-            else: 
-                derivatives[:, j] = func(t[i] + h*beta[j], y[:, i:i+1] + h * step_deriv, args[0], args[1], args[2], args[3], 0, 0)
-        for k in range(yn):
-            y[k, i + 1] = y[k, i] + h * np.dot(alpha, derivatives[k, :])
+    for i in range(tn - 1): 
+        f = np.zeros([yn, fn]) # derivatives at each time satep
+        for j in range(fn): 
+            f_current = f @ gamma[j, :][:, np.newaxis] # f weights used for the current beta step
+            y_new = (y[:, i:i+1] + h * f_current).flatten()
+            t_new = t[i] + h*beta[j]
+            f[:, j:j+1] = func(t_new, y_new, *args)
+
+        # update y matrix with values calculated at the new timestep according to alpha weightings on all yfn derivatives
+        y[:, i+1:i+2] = y[:, i:i+1] + h * f @ alpha[:, np.newaxis]
 
     return t, y
 
