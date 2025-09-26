@@ -79,13 +79,36 @@ def explicit_rk_fixed_step(func, y0, t0, t1, h, alpha, beta, gamma, *args):
     return t, y
 
 def derivative_threebody(t,y0,g,m1,m2,m3):
-    # HINT 1: One of these six function arguments will not actually be used in this threebody derivative function. However, do not remove it from the function definition, to preserve the generality of the solver functions.
-    # HINT 2: For the expected format of y0, see the initial conditions provided in the task file.
+    """
+    Compute the derivates of the three-body-problem in two dimensions (x-y plane).
 
-    # Remember to create a docstring
-    
-    # TODO: Your code goes here
-    pass
+    Args:
+        t (float): independent variable, time (s).
+        y0 (ndarray): position (m) and velocity (m/s) of each body in each plane
+        g (float): gravitational acceleration (m/s^2).
+        m1 (float): masss of first body (kg)
+        m2 (float): masss of second body (kg)
+        m3 (float): masss of third body (kg)
+
+    Returns:
+        f (ndarray): velocity (m/s) and acceleration (m/s^2) of each body in each plane:
+    """
+    f = np.zeros([12])
+    [x1, y1, x2, y2, x3, y3] = y0[0:12:2] 
+    # assign velocity values from input directly to output vector
+    f[0:11:2] = y0[1:12:2] 
+
+    # calculate accerations from position inputs
+    f[1:4:2] = (np.array([(x2 - x1), (y2- y1)]) * (g*m2/ ((x1-x2)**2 + (y1-y2)**2)**(3/2)) + #body 1
+    np.array([(x3 - x1), (y3- y1)]) * (g*m3/ ((x1-x3)**2 + (y1-y3)**2)**(3/2)))
+
+    f[5:8:2] = (np.array([(x1 - x2), (y1- y2)]) * (g*m1/ ((x1-x2)**2 + (y1-y2)**2)**(3/2)) + #body 2
+    np.array([(x3 - x2), (y3- y2)]) * (g*m3/ ((x2-x3)**2 + (y2-y3)**2)**(3/2)))
+
+    f[9:12:2] = (np.array([(x1 - x3), (y1- y3)]) * (g*m1/ ((x1-x3)**2 + (y1-y3)**2)**(3/2)) + #body 3
+    np.array([(x2 - x3), (y2- y3)]) * (g*m2/ ((x2-x3)**2 + (y2-y3)**2)**(3/2)))
+
+    return f
 
 def dp_solver_adaptive_step(func, y0, t0, t1, atol, *args):
     """
