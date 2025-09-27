@@ -14,18 +14,19 @@ x3_prime = 0.0
 y3 = -1.0
 y3_prime = 0.0
 y0 = np.array([x1,x1_prime,y1,y1_prime,x2,x2_prime,y2,y2_prime,x3,x3_prime,y3,y3_prime])
-print(np.shape(y0))
-[x1, y1, x2, y2, x3, y3] = y0[0:12:2]
 
 g = 1.0
-m1 = 3.0
+m1 = 3
 m2 = 4.0
 m3 = 5.0
 t0 = 0.0
-t1 = 18.0
-tol = 0.015
+t1 = 16
+atol = 0.015
 
-f = derivative_threebody(None, y0, g, m1, m2, m3)
-print(f)
+t, y = dp_solver_adaptive_step(derivative_threebody, y0, t0, t1, atol, g, m1, m2, m3)
+plt.plot(y[0, :], y[2, :])
+plt.plot(y[4, :], y[6, :])
+plt.plot(y[8, :], y[10, :])
+plt.show()
 #My_Gen_AI_3BP_Animation_Tool(t,y)
 

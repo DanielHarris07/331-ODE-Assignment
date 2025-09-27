@@ -129,9 +129,52 @@ def dp_solver_adaptive_step(func, y0, t0, t1, atol, *args):
     dp45_alpha = np.array([[35./384.,0.,500./1113.,125./192.,-2187./6784.,11./84.,0.], [5179./57600., 0., 7571./16695., 393./640., -92097./339200., 187./2100., 1./40.]])
     dp45_beta = np.array([0., 1./5., 3./10., 4./5., 8./9., 1., 1.])
     dp45_gamma = np.array([[0.,0.,0.,0.,0.,0.,0.],[1./5.,0.,0.,0.,0.,0.,0.],[3./40.,9./40.,0.,0.,0.,0.,0.],[44./45.,-56./15.,32./9.,0.,0.,0.,0.],[19372./6561.,-25360./2187.,64448./6561.,-212./729.,0.,0.,0.],[9017./3168.,-355./33.,46732./5247.,49./176.,-5103./18656.,0.,0.],[35./384.,0.,500./1113.,125./192.,-2187./6784.,11./84.,0.]],)
+    safety_factor = 0.9
+    min_step = 1e-7
+    h = 0.01 # initial stedp guess from brief
+    # set initial conditions for the dependent variables
+    y = np.concatenate((y0, y0))[:, np.newaxis]
+    print(np.shape(y)) # should be 12 rows 1 col
     
-    # TODO: Your code goes here
-    pass
+    # solve using dp45 method at each timestep
+    t = [t0]
+    i = 0
+    while t[-1] < t1:
+        # Check the current step wont take us past t1
+        if t[-1] + h > t1:
+            h = t1 - t[-1]
+        
+        f = np.zeros([24, 7]) # derivatives at each time step (should be 12 x 7)
+        for j in range(7): 
+            f_current = f @ dp45_gamma[j, :][:, np.newaxis] # f weights used for the current beta step
+            y_new = (y[:, i:i+1] + h * f_current).flatten()
+            t_new = t[-1] + h*dp45_beta[j]
+            f[:12, j] = func(t_new, y_new[:12], *args) # 5th order method
+            f[12:, j] = func(t_new, y_new[12:], *args) # 4th order method
+
+        # update y matrix with values calculated at the new timestep according to alpha weightings on all yfn derivatives
+        #y_5th = y[:12, i:i+1] + h * f[:12, :] @ dp45_alpha[0, :][:, np.newaxis]
+        #y_4th = y[12:, i:i+1] + h * f[12:, :] @ dp45_alpha[1, :][:, np.newaxis]
+        y_5th = h * f[:12, :] @ dp45_alpha[0, :][:, np.newaxis]
+        y_4th = h * f[12:, :] @ dp45_alpha[1, :][:, np.newaxis]
+
+        # check error on the current step size and adjust accordingly
+        system_err = abs(y_5th - y_4th)/ atol
+        max_err = max(abs(y_5th - y_4th))
+        # If step was good or at minimum already
+        if max_err < atol or h == min_step:
+            y = np.concatenate((y, np.concatenate((y_5th + y[:12, i:i+1], y_4th + y[12:, i:i+1]), axis=0)), axis=1) 
+            t = np.append(t, t[-1] + h)
+            i += 1
+            h = safety_factor * h * (1/max(system_err))**(1/5)
+        else: # if step was bad
+            h = safety_factor * h * (1/max(system_err))**(1/5)
+
+        if h < min_step:
+            h = min_step
+        #print(f'Max Error: {max_err}  Step Size: {h}  Iteration: {i}  Time Step: {len(t)}  Time: {t[-1]}')
+
+    return t, y
 
 def My_Gen_AI_3BP_Animation_Tool(t,y):
     """
@@ -187,7 +230,7 @@ def My_Gen_AI_3BP_Animation_Tool(t,y):
         return scatters + trails + [line]
 
     # Create animation
-    ani = FuncAnimation(fig, update, frames=len(t), interval=100, blit=True)
+    ani = FuncAnimation(fig, update, frames=len(t), interval=10, blit=True)
 
     plt.show()
 
