@@ -16,7 +16,7 @@ y3_prime = 0.0
 y0 = np.array([x1,x1_prime,y1,y1_prime,x2,x2_prime,y2,y2_prime,x3,x3_prime,y3,y3_prime])
 
 g = 1.0
-m1 = 3
+m1 = 3.0
 m2 = 4.0
 m3 = 5.0
 t0 = 0.0

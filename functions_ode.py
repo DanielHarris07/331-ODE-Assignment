@@ -110,6 +110,7 @@ def derivative_threebody(t,y0,g,m1,m2,m3):
 
     return f
 
+
 def dp_solver_adaptive_step(func, y0, t0, t1, atol, *args):
     """
     Compute solution to ODE using the Dormand-Prince embedded RK method with an adaptive step size.
@@ -133,8 +134,7 @@ def dp_solver_adaptive_step(func, y0, t0, t1, atol, *args):
     min_step = 1e-7
     h = 0.01 # initial stedp guess from brief
     # set initial conditions for the dependent variables
-    y = np.concatenate((y0, y0))[:, np.newaxis]
-    print(np.shape(y)) # should be 12 rows 1 col
+    y = y0[:, np.newaxis]
     
     # solve using dp45 method at each timestep
     t = [t0]
@@ -144,35 +144,34 @@ def dp_solver_adaptive_step(func, y0, t0, t1, atol, *args):
         if t[-1] + h > t1:
             h = t1 - t[-1]
         
-        f = np.zeros([24, 7]) # derivatives at each time step (should be 12 x 7)
+        f = np.zeros([12, 7]) # derivatives at each time step (should be 12 x 7)
         for j in range(7): 
             f_current = f @ dp45_gamma[j, :][:, np.newaxis] # f weights used for the current beta step
-            y_new = (y[:, i:i+1] + h * f_current).flatten()
+            y_new = (y[:, i] + h * f_current).flatten()
             t_new = t[-1] + h*dp45_beta[j]
-            f[:12, j] = func(t_new, y_new[:12], *args) # 5th order method
-            f[12:, j] = func(t_new, y_new[12:], *args) # 4th order method
+            f[:, j] = func(t_new, y_new, *args) 
 
         # update y matrix with values calculated at the new timestep according to alpha weightings on all yfn derivatives
-        #y_5th = y[:12, i:i+1] + h * f[:12, :] @ dp45_alpha[0, :][:, np.newaxis]
-        #y_4th = y[12:, i:i+1] + h * f[12:, :] @ dp45_alpha[1, :][:, np.newaxis]
-        y_5th = h * f[:12, :] @ dp45_alpha[0, :][:, np.newaxis]
-        y_4th = h * f[12:, :] @ dp45_alpha[1, :][:, np.newaxis]
+        y_5th = y[:, i:i+1] + h * f @ dp45_alpha[0, :][:, np.newaxis]
+        y_4th = y[:, i:i+1] + h * f @ dp45_alpha[1, :][:, np.newaxis]
 
         # check error on the current step size and adjust accordingly
-        system_err = abs(y_5th - y_4th)/ atol
-        max_err = max(abs(y_5th - y_4th))
+        
+        system_err = np.abs(y_5th - y_4th) / atol
+        max_err = np.max(system_err)
+        max_i = np.argmax(system_err)
         # If step was good or at minimum already
-        if max_err < atol or h == min_step:
-            y = np.concatenate((y, np.concatenate((y_5th + y[:12, i:i+1], y_4th + y[12:, i:i+1]), axis=0)), axis=1) 
+        if (max_err <= atol) or (h == min_step):
+            y = np.concatenate((y, y_5th), axis=1)
             t = np.append(t, t[-1] + h)
             i += 1
-            h = safety_factor * h * (1/max(system_err))**(1/5)
+            h = safety_factor * h * (atol / system_err[max_i])**(1./5.)
         else: # if step was bad
-            h = safety_factor * h * (1/max(system_err))**(1/5)
+            h = safety_factor * h * (atol / system_err[max_i])**(1./5.)
 
         if h < min_step:
             h = min_step
-        #print(f'Max Error: {max_err}  Step Size: {h}  Iteration: {i}  Time Step: {len(t)}  Time: {t[-1]}')
+        print(f'Max Error: {max_err}  Step Size: {h}  Iteration: {i}  Time Step: {len(t)}  Time: {t[-1]}')
 
     return t, y
 
@@ -230,8 +229,63 @@ def My_Gen_AI_3BP_Animation_Tool(t,y):
         return scatters + trails + [line]
 
     # Create animation
-    ani = FuncAnimation(fig, update, frames=len(t), interval=10, blit=True)
+    ani = FuncAnimation(fig, update, frames=len(t), interval=100, blit=True)
 
     plt.show()
 
     return
+
+def derivative_vanderpol(t, y, mu):
+    """
+    Compute the derivatives of the Van der Pol oscillator
+
+    Args:
+        t (float): independent variable, time (s).
+        y (ndarray): y[0] = y, y[1] = y'.
+        mu (float): strength of non-linear damping.
+        
+    Returns:
+        f (ndarray): f[0] = y', f[1] = y''.
+    """
+    f = np.zeros([2])
+    f[0] = y[1]
+    f[1] = mu*(1.-y[0]**2)*y[1] - y[0]
+
+    return f
+
+def backward_euler_solver(func, y0, t0, t1, h, tol, max_iter, *args):
+    '''
+    Solves an ODE using the implicit backward euler method
+
+    Args: 
+        func (callable): ODE function
+        y0 (ndarray): initial conditions of the system
+        t0 (float): initial time
+        t1 (float): final time
+        h (float): step size
+        tol (float): convergence tolerance for implicit method
+        max_iter (int): backup convergence tolerance for implicit method
+        *args : optional system parameters to pass to ODE function
+    '''
+     # initialise independent and dependent return arrays
+    tn = int(np.floor((t1 - t0)/h) + 1)
+    t = np.array(np.linspace(t0, t1, tn))
+    yn = len(y0)
+    y = np.zeros([yn, tn]) 
+    # set initial conditions for the dependent variables
+    y[:, 0] = y0
+
+    for i in range(tn - 1):
+        #perform initial guess using forward Euler
+        y_guess = y[:, i] + h * func(t[i], y[:, i], *args)
+        for j in range(max_iter):
+            y_next = y[:, i] + h * func(t[i] + h, y_guess, *args)
+            # check if converged
+            abs_err = (y_next - y_guess) / (1 + y_next)
+            if all(abs_err < tol):
+                break
+            else:
+                y_guess = y_next
+        y[:, i + 1] = y_next
+            
+    return t, y

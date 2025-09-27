@@ -38,24 +38,21 @@ for i in range(12):
                                                 rk4_alpha, rk4_beta, rk4_gamma, gravity, length[i], mass, drag, spring[i], gamma)
 
 # plot all bungee cords max displacement
-max_displacement = np.zeros([13])
-labels = [None] * 13
-bar_labels = [None] * 13
+max_displacement = np.zeros([12])
+labels = [None] * 12
 for i in range(12):
     labels[i] = f"{"SHORT" if i < 6 else "REG"}{spring[i]}"
     max_displacement[i] = max(solutions[i][0, :])
-    bar_labels[i] = f"{"SHORT" if i < 6 else "REG"}{spring[i]}: {max_displacement[i]:.2f}"
-max_displacement[-1] = 43
-labels[-1] = "Fully Dunked"
-bar_colors = ['tab:blue'] * 12 + ['tab:red']
-bar_labels[-1] = 'Fully Dunked: 43'
+
+bar_colors = ['tab:blue'] * 12 
 
 
 fig, ax = plt.subplots(figsize=(11, 6))
-ax.bar(labels, max_displacement, label=bar_labels, color=bar_colors)
+ax.bar(labels, max_displacement, color=bar_colors)
+plt.axhline(y=43, color='red', linestyle='--', linewidth=2, label='43 m')
 ax.set_ylabel('Maximum Displacement [m]')
 ax.set_title('Maximum Displacement by Cord Length and Stiffness')
-ax.legend(title='Maximum Displacement [m]', loc='upper left', bbox_to_anchor=(1, 1))
+ax.legend()
 plt.show()
 
 # Plot best cord
@@ -70,3 +67,21 @@ plt.xlabel("Vertical Displacement [m]")
 plt.ylabel("Vertical Velocity [m/s]")
 plt.title("Phase Plot of Vecrtical Velocity against Displacement for REG70 Bungee Cord")
 plt.show()
+
+# Find 41.2m impact velocity with REG70
+idx = (np.abs(solutions[8][0, :] - 41.2)).argmin()
+print(f'Velocity = {solutions[8][1, idx]}')
+
+# jumper is actuall 85kg
+mass = 85
+t, solution = explicit_rk_fixed_step(derivative_bungy, y0, t0, t1, h,
+                                                rk4_alpha, rk4_beta, rk4_gamma, gravity, length[8], mass, drag, spring[8], gamma)
+# Plot best cord
+plt.plot(t, solution[0, :], label="Vertical Displacment [m]")
+plt.plot(t, solution[1, :], label="Velocity [m/s]")
+plt.xlabel("Time [s]")
+plt.title("Vertical Displacement and Velocity against Time for REG70 85kg Jumper")
+plt.show()
+print(f'Max Displacement: {np.max(solution[0, :])}')
+idx = (np.abs(solution[0, :] - 41.2)).argmin()
+print(f'Impact Velocity: {solution[1, idx]}')
