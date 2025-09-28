@@ -1,4 +1,6 @@
-from functions_ode import *
+from functions_old import*
+from functions_ode import My_Gen_AI_3BP_Animation_Tool
+
 
 # Three-Body Problem: Initial Conditions
 x1 = 1.0
@@ -24,15 +26,11 @@ t1 = 18
 atol = 0.015
 
 t, y = dp_solver_adaptive_step(derivative_threebody, y0, t0, t1, atol, g, m1, m2, m3)
-plt.title("Motion of a Three-Body Problem")
-plt.xlabel("x")
-plt.ylabel("y")
-plt.plot(y[0, :], y[2, :], label="Body 1")
-plt.plot(y[4, :], y[6, :], label="Body 2")
-plt.plot(y[8, :], y[10, :], label="Body 3")
-plt.legend()
-plt.show()
 diffs = np.diff(t)
-print(max(diffs))
-My_Gen_AI_3BP_Animation_Tool(t,y)
+print(f'Average Step: {np.mean(diffs)}  Largest Step: {np.max(diffs)}  Smallest Step: {np.min(diffs)}')
+plt.plot(y[0, :], y[2, :])
+plt.plot(y[4, :], y[6, :])
+plt.plot(y[8, :], y[10, :])
+plt.show()
 
+My_Gen_AI_3BP_Animation_Tool(t,y)

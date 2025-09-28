@@ -32,6 +32,7 @@ def derivative_bungy(t, y, gravity, length, mass, drag, spring, gamma):
     if y[0] < length:
         spring = 0
         gamma = 0
+    # Calculate second derivative of position with respect to time
     f[1] = (mass * gravity - np.sign(y[1])*drag*y[1]**2 - spring*(y[0]  - length) - gamma * y[1]) / mass
     
     return f
@@ -93,20 +94,15 @@ def derivative_threebody(t,y0,g,m1,m2,m3):
     Returns:
         f (ndarray): velocity (m/s) and acceleration (m/s^2) of each body in each plane:
     """
-    f = np.zeros([12])
-    [x1, y1, x2, y2, x3, y3] = y0[0:12:2] 
-    # assign velocity values from input directly to output vector
-    f[0:11:2] = y0[1:12:2] 
-
-    # calculate accerations from position inputs
-    f[1:4:2] = (np.array([(x2 - x1), (y2- y1)]) * (g*m2/ ((x1-x2)**2 + (y1-y2)**2)**(3/2)) + #body 1
-    np.array([(x3 - x1), (y3- y1)]) * (g*m3/ ((x1-x3)**2 + (y1-y3)**2)**(3/2)))
-
-    f[5:8:2] = (np.array([(x1 - x2), (y1- y2)]) * (g*m1/ ((x1-x2)**2 + (y1-y2)**2)**(3/2)) + #body 2
-    np.array([(x3 - x2), (y3- y2)]) * (g*m3/ ((x2-x3)**2 + (y2-y3)**2)**(3/2)))
-
-    f[9:12:2] = (np.array([(x1 - x3), (y1- y3)]) * (g*m1/ ((x1-x3)**2 + (y1-y3)**2)**(3/2)) + #body 3
-    np.array([(x2 - x3), (y2- y3)]) * (g*m2/ ((x2-x3)**2 + (y2-y3)**2)**(3/2)))
+    # get [x, y] position-vectors from the input dependent variable vector
+    r1 = np.array([y0[0], y0[2]])
+    r2 = np.array([y0[4], y0[6]])
+    r3 = np.array([y0[8], y0[10]])
+    # calculate sum of forces acting on each body with respect to each other body
+    f1 = g*m2*(r2 - r1) / ((np.linalg.norm(r1 - r2))**3) + g*m3*(r3 - r1) / ((np.linalg.norm(r1 - r3))**3)
+    f2 = g*m1*(r1 - r2) / ((np.linalg.norm(r2 - r1))**3) + g*m3*(r3 - r2) / ((np.linalg.norm(r2 - r3))**3)
+    f3 = g*m1*(r1 - r3) / ((np.linalg.norm(r3 - r1))**3) + g*m2*(r2 - r3) / ((np.linalg.norm(r3 - r2))**3)
+    f = np.array([y0[1], f1[0], y0[3], f1[1], y0[5], f2[0], y0[7], f2[1], y0[9], f3[0], y0[11], f3[1]])
 
     return f
 
@@ -132,46 +128,43 @@ def dp_solver_adaptive_step(func, y0, t0, t1, atol, *args):
     dp45_gamma = np.array([[0.,0.,0.,0.,0.,0.,0.],[1./5.,0.,0.,0.,0.,0.,0.],[3./40.,9./40.,0.,0.,0.,0.,0.],[44./45.,-56./15.,32./9.,0.,0.,0.,0.],[19372./6561.,-25360./2187.,64448./6561.,-212./729.,0.,0.,0.],[9017./3168.,-355./33.,46732./5247.,49./176.,-5103./18656.,0.,0.],[35./384.,0.,500./1113.,125./192.,-2187./6784.,11./84.,0.]],)
     safety_factor = 0.9
     min_step = 1e-7
-    h = 0.01 # initial stedp guess from brief
+    h_new = 0.01 # initial stedp guess from brief
     # set initial conditions for the dependent variables
     y = y0[:, np.newaxis]
     
     # solve using dp45 method at each timestep
     t = [t0]
-    i = 0
     while t[-1] < t1:
         # Check the current step wont take us past t1
-        if t[-1] + h > t1:
-            h = t1 - t[-1]
+        if t[-1] + h_new > t1:
+            h_new = t1 - t[-1]
         
         f = np.zeros([12, 7]) # derivatives at each time step (should be 12 x 7)
         for j in range(7): 
             f_current = f @ dp45_gamma[j, :][:, np.newaxis] # f weights used for the current beta step
-            y_new = (y[:, i] + h * f_current).flatten()
-            t_new = t[-1] + h*dp45_beta[j]
+            y_new = (y[:, -1:] + h_new * f_current).flatten()
+            t_new = t[-1] + h_new*dp45_beta[j]
+            # calculate the jth derivates and fill in the according values in the f matrix
             f[:, j] = func(t_new, y_new, *args) 
 
         # update y matrix with values calculated at the new timestep according to alpha weightings on all yfn derivatives
-        y_5th = y[:, i:i+1] + h * f @ dp45_alpha[0, :][:, np.newaxis]
-        y_4th = y[:, i:i+1] + h * f @ dp45_alpha[1, :][:, np.newaxis]
+        y_5th = h_new * f @ dp45_alpha[0, :][:, np.newaxis]
+        y_4th = h_new * f @ dp45_alpha[1, :][:, np.newaxis]
 
-        # check error on the current step size and adjust accordingly
+        # check error on the current step just performed
+        max_system_err = np.max(np.abs(y_5th - y_4th) / atol)
+        # If step was good or at minimum already, save the step
+        if (max_system_err < 1) or (h_new == min_step):
+            y = np.append(y, (y[:, -1:] + y_5th), axis = 1)
+            t = np.append(t, t[-1] + h_new)
         
-        system_err = np.abs(y_5th - y_4th) / atol
-        max_err = np.max(system_err)
-        max_i = np.argmax(system_err)
-        # If step was good or at minimum already
-        if (max_err <= atol) or (h == min_step):
-            y = np.concatenate((y, y_5th), axis=1)
-            t = np.append(t, t[-1] + h)
-            i += 1
-            h = safety_factor * h * (atol / system_err[max_i])**(1./5.)
-        else: # if step was bad
-            h = safety_factor * h * (atol / system_err[max_i])**(1./5.)
+        h_old = h_new
+        h_new = safety_factor * h_old * (1/max_system_err)**(1./5.)
+        if h_new < min_step:
+            h_new = min_step
 
-        if h < min_step:
-            h = min_step
-        print(f'Max Error: {max_err}  Step Size: {h}  Iteration: {i}  Time Step: {len(t)}  Time: {t[-1]}')
+        
+        #print(f'Max Error: {max_system_err}  Step Size: {h_new}  Time Step: {len(t)}  Time: {t[-1]}')
 
     return t, y
 
@@ -229,7 +222,7 @@ def My_Gen_AI_3BP_Animation_Tool(t,y):
         return scatters + trails + [line]
 
     # Create animation
-    ani = FuncAnimation(fig, update, frames=len(t), interval=100, blit=True)
+    ani = FuncAnimation(fig, update, frames=len(t), interval=10, blit=True)
 
     plt.show()
 
