@@ -34,5 +34,6 @@ plt.legend()
 plt.show()
 diffs = np.diff(t)
 print(max(diffs))
+print(np.mean(diffs))
 My_Gen_AI_3BP_Animation_Tool(t,y)
 
